@@ -1,0 +1,6 @@
+{
+  "name": "QuantGuru - Exam Quant Solver & Mastery",
+  "description": "Smart quantitative aptitude solver, topper tricks, step-by-step methods, and formula cheat-sheets for SSC CGL, Railway, LIC AAO, FCI, WBPSC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
