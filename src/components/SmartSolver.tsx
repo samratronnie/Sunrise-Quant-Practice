@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { TargetExam, SolverMode, SolverResult } from '../types/quant';
 import { MathRenderer } from './MathRenderer';
 import { SYLLABUS_TOPICS } from '../data/syllabusTopics';
+import { solveQuantQuestionClient } from '../utils/clientQuantSolver';
 import { 
   Zap, 
   BookOpen, 
@@ -113,7 +114,11 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
       setResult(data);
       setActiveMethodTab('shortcut');
     } catch (err) {
-      console.error('Solve error:', err);
+      console.warn('Backend /api/solve offline or static hosting detected (e.g. Netlify CDN). Running built-in client engine:', err);
+      // Run the smart client quant solver instantly
+      const clientSolution = solveQuantQuestionClient(questionText.trim(), selectedExam);
+      setResult(clientSolution);
+      setActiveMethodTab('shortcut');
     } finally {
       setIsLoading(false);
     }
