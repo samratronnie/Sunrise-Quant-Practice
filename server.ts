@@ -193,7 +193,16 @@ app.post('/api/solve', async (req, res) => {
       return res.status(400).json({ error: 'Please provide a question text or image.' });
     }
 
-    if (!ai) {
+    let clientAi = ai;
+    const customKey = req.headers['x-gemini-key'] as string;
+    if (customKey) {
+      clientAi = new GoogleGenAI({
+        apiKey: customKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+      });
+    }
+
+    if (!clientAi) {
       // Return structured fallback solution
       const fallback = generateFallbackSolution(question || 'Image based Quant Problem', exam);
       return res.json(fallback);
@@ -220,22 +229,32 @@ Provide both the Topper Speed Trick (under 30s) and the step-by-step Conventiona
 
     parts.push({ text: promptText });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: { parts },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: 'application/json',
-        responseSchema: SOLVE_RESPONSE_SCHEMA,
-      },
-    });
+    let parsed = null;
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-3.8-flash'];
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await clientAi.models.generateContent({
+          model: modelName,
+          contents: { parts },
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            responseMimeType: 'application/json',
+            responseSchema: SOLVE_RESPONSE_SCHEMA,
+          },
+        });
+        if (response.text) {
+          parsed = JSON.parse(response.text);
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`Model ${modelName} in server.ts failed:`, err.message);
+      }
+    }
 
-    const text = response.text;
-    if (!text) {
+    if (!parsed) {
       return res.json(generateFallbackSolution(question, exam));
     }
 
-    const parsed = JSON.parse(text);
     return res.json(parsed);
   } catch (error: any) {
     console.error('Error solving question:', error);

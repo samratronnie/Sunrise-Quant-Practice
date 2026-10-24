@@ -4,6 +4,7 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 # Route API requests to Netlify Functions if deployed
 [[redirects]]

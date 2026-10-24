@@ -20,8 +20,10 @@ import {
   ArrowRight, 
   Clock, 
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from 'lucide-react';
+import { NetlifyConfigModal } from './NetlifyConfigModal';
 
 interface SmartSolverProps {
   selectedExam: TargetExam;
@@ -37,6 +39,11 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
   const [imageFileName, setImageFileName] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<SolverResult | null>(null);
+  const [engineUsed, setEngineUsed] = useState<'ai' | 'client' | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
+  const [hasCustomKey, setHasCustomKey] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('quantguru_gemini_key'));
+  });
   const [activeMethodTab, setActiveMethodTab] = useState<'shortcut' | 'conventional'>('shortcut');
   const [revealedHints, setRevealedHints] = useState<{ [key: number]: boolean }>({});
   const [revealedAnswers, setRevealedAnswers] = useState<{ [key: number]: boolean }>({});
@@ -98,9 +105,13 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
     setResult(null);
 
     try {
+      const customKey = localStorage.getItem('quantguru_gemini_key') || '';
       const response = await fetch('/api/solve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(customKey ? { 'x-gemini-key': customKey } : {}),
+        },
         body: JSON.stringify({
           question: questionText.trim(),
           exam: selectedExam,
@@ -116,6 +127,7 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
 
       const data: SolverResult = await response.json();
       setResult(data);
+      setEngineUsed('ai');
       setActiveMethodTab('shortcut');
       if (user) {
         addDoc(collection(db, 'users', user.uid, 'solved'), {
@@ -128,10 +140,11 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
         }).catch((e) => console.warn('Firestore solved record note:', e));
       }
     } catch (err) {
-      console.warn('Backend /api/solve offline or static hosting detected (e.g. Netlify CDN). Running built-in client engine:', err);
-      // Run the smart client quant solver instantly
+      console.warn('Backend /api/solve offline or Netlify GEMINI_API_KEY missing. Using client calculation engine:', err);
+      // Run the high-precision client quant solver instantly
       const clientSolution = solveQuantQuestionClient(questionText.trim(), selectedExam);
       setResult(clientSolution);
+      setEngineUsed('client');
       setActiveMethodTab('shortcut');
       if (user) {
         addDoc(collection(db, 'users', user.uid, 'solved'), {
@@ -213,9 +226,23 @@ Final Answer: ${result.finalAnswer} ${result.correctOptionLetter ? `(Option ${re
       {/* Main Solver Input Form */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 md:p-7 shadow-xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-400" />
-            <h3 className="font-bold text-base text-white">Enter or Upload Question</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-400" />
+              <h3 className="font-bold text-base text-white">Enter or Upload Question</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 hover:text-white transition-colors"
+              title="Configure Netlify deployment or Gemini API Key"
+            >
+              <Settings className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Netlify & AI Setup</span>
+              {hasCustomKey && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400" title="Custom Key Active" />
+              )}
+            </button>
           </div>
           
           {/* Mode Selector */}
@@ -411,6 +438,26 @@ Final Answer: ${result.finalAnswer} ${result.correctOptionLetter ? `(Option ${re
       {/* SOLUTION DISPLAY SECTION */}
       {result && (
         <div className="bg-slate-900 border border-indigo-900/60 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+          {/* Engine Status Banner */}
+          {engineUsed === 'client' && (
+            <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-indigo-300">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Calculated with QuantGuru Math Engine</strong> (BODMAS, Algebra & Quant formulas).
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfigModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/40 text-indigo-200 rounded-xl font-semibold transition-colors shrink-0"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Configure Netlify AI
+              </button>
+            </div>
+          )}
+
           {/* Header Badges & Actions */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
             <div className="space-y-1">
@@ -638,6 +685,15 @@ Final Answer: ${result.finalAnswer} ${result.correctOptionLetter ? `(Option ${re
           )}
         </div>
       )}
+
+      {/* Netlify Deployment & Gemini AI Configuration Modal */}
+      <NetlifyConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        onKeyUpdated={() => {
+          setHasCustomKey(Boolean(localStorage.getItem('quantguru_gemini_key')));
+        }}
+      />
     </div>
   );
 };
