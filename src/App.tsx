@@ -15,8 +15,14 @@ import {
   Calculator, 
   Sparkles, 
   GraduationCap,
-  Award
+  Award,
+  LogIn,
+  LogOut,
+  User as UserIcon,
+  ChevronDown
 } from 'lucide-react';
+import { useAuth } from './contexts/AuthContext';
+import { AuthModal } from './components/AuthModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
@@ -24,6 +30,10 @@ export default function App() {
   >('solver');
 
   const [selectedExam, setSelectedExam] = useState<TargetExam>('ALL_EXAMS');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const { user, signOut } = useAuth();
 
   // Trigger from Syllabus Explorer to Smart Solver
   const handleLoadQuestionInSolver = (qText: string) => {
@@ -55,8 +65,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Exam Tag Switcher */}
-          <div className="flex items-center gap-2">
+          {/* Exam Tag Switcher & Firebase Auth Sign In */}
+          <div className="flex items-center gap-3">
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs font-semibold">
               <span className="px-2 text-slate-400 text-[11px]">Exam:</span>
               {[
@@ -80,6 +90,67 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            {/* Firebase Auth Integration: Sign In / User Profile */}
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-200 transition-colors shadow-sm"
+                  aria-label="User profile menu"
+                >
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
+                      {(user.displayName || user.email || (user.isAnonymous ? 'G' : 'A'))[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="hidden sm:inline-block max-w-[110px] truncate text-slate-200">
+                    {user.displayName || (user.isAnonymous ? 'Guest Aspirant' : user.email?.split('@')[0])}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Firestore Connected & Synced" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                {userMenuOpen && (
+                  <div 
+                    className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl p-2.5 shadow-2xl z-50 animate-in fade-in duration-150"
+                  >
+                    <div className="px-3 py-2 border-b border-slate-800/80 mb-1">
+                      <p className="text-xs font-bold text-white truncate">
+                        {user.displayName || (user.isAnonymous ? 'Guest Aspirant' : 'Aspirant')}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate font-mono">
+                        {user.email || 'Anonymous Guest'}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-2 text-[10px] text-emerald-400 font-semibold bg-emerald-950/40 border border-emerald-900/60 px-2 py-0.5 rounded-lg w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Firebase & Firestore Active
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        signOut();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/30 rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -213,6 +284,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Firebase Sign-in Modal */}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }

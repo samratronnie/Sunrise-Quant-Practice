@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { MOCK_EXAMS } from '../data/mockTests';
 import { MockExamTest, MockQuestion } from '../types/quant';
 import { MathRenderer } from './MathRenderer';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import confetti from 'canvas-confetti';
 import { 
   Timer, 
@@ -19,6 +22,7 @@ import {
 } from 'lucide-react';
 
 export const MockExamArena: React.FC = () => {
+  const { user } = useAuth();
   const [selectedMockId, setSelectedMockId] = useState<string>('ssc-cgl-sprint-1');
   const [isTestActive, setIsTestActive] = useState<boolean>(false);
   const [isTestSubmitted, setIsTestSubmitted] = useState<boolean>(false);
@@ -118,6 +122,24 @@ export const MockExamArena: React.FC = () => {
   const maxMarks = activeMock.totalQuestions * activeMock.marksPerQuestion;
   const accuracyPct =
     correctCount + wrongCount > 0 ? Math.round((correctCount / (correctCount + wrongCount)) * 100) : 0;
+
+  // Persist mock scorecard to Firestore when submitted
+  useEffect(() => {
+    if (isTestSubmitted && user) {
+      addDoc(collection(db, 'users', user.uid, 'mockAttempts'), {
+        mockId: activeMock.id,
+        mockTitle: activeMock.title,
+        exam: activeMock.exam,
+        netScore,
+        maxMarks,
+        accuracyPct,
+        correctCount,
+        wrongCount,
+        unattemptedCount,
+        createdAt: serverTimestamp(),
+      }).catch((e) => console.warn('Firestore mock attempt note:', e));
+    }
+  }, [isTestSubmitted]);
 
   // Format timer
   const formatTime = (secs: number) => {

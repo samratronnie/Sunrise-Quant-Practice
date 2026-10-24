@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with exam preparation target and activity statistics",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "Profile avatar URL" },
+        "selectedExam": { "type": "string", "description": "Target exam chosen by user" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp of last update" }
+      },
+      "required": ["uid"]
+    },
+    "SolvedRecord": {
+      "title": "SolvedRecord",
+      "description": "History of questions solved by user with topper shortcut and notes",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "question": { "type": "string", "description": "Question text" },
+        "topic": { "type": "string", "description": "Quant topic" },
+        "finalAnswer": { "type": "string", "description": "Computed answer" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["userId", "question"]
+    },
+    "MockAttemptRecord": {
+      "title": "MockAttemptRecord",
+      "description": "Record of a mock exam test taken by the user with score and accuracy",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "mockId": { "type": "string", "description": "Mock test ID" },
+        "exam": { "type": "string", "description": "Exam name" },
+        "netScore": { "type": "number", "description": "Net score obtained" },
+        "accuracy": { "type": "number", "description": "Accuracy percentage" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["userId", "mockId", "netScore"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/solved/{solvedId}": {
+      "schema": "SolvedRecord",
+      "description": "Collection of solved problems by the user"
+    },
+    "/users/{userId}/mockAttempts/{attemptId}": {
+      "schema": "MockAttemptRecord",
+      "description": "Collection of mock test attempts taken by the user"
+    }
+  }
+}

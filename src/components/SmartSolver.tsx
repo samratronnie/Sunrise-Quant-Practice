@@ -3,6 +3,9 @@ import { TargetExam, SolverMode, SolverResult } from '../types/quant';
 import { MathRenderer } from './MathRenderer';
 import { SYLLABUS_TOPICS } from '../data/syllabusTopics';
 import { solveQuantQuestionClient } from '../utils/clientQuantSolver';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   Zap, 
   BookOpen, 
@@ -26,6 +29,7 @@ interface SmartSolverProps {
 }
 
 export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamChange }) => {
+  const { user } = useAuth();
   const [questionText, setQuestionText] = useState<string>('');
   const [solverMode, setSolverMode] = useState<SolverMode>('DUAL_METHOD');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -113,12 +117,32 @@ export const SmartSolver: React.FC<SmartSolverProps> = ({ selectedExam, onExamCh
       const data: SolverResult = await response.json();
       setResult(data);
       setActiveMethodTab('shortcut');
+      if (user) {
+        addDoc(collection(db, 'users', user.uid, 'solved'), {
+          question: questionText.trim() || 'Visual Question',
+          targetExam: selectedExam,
+          topic: data.topicDetected,
+          finalAnswer: data.finalAnswer,
+          speedEstimate: data.examShortcut?.speedEstimate || '30s',
+          createdAt: serverTimestamp(),
+        }).catch((e) => console.warn('Firestore solved record note:', e));
+      }
     } catch (err) {
       console.warn('Backend /api/solve offline or static hosting detected (e.g. Netlify CDN). Running built-in client engine:', err);
       // Run the smart client quant solver instantly
       const clientSolution = solveQuantQuestionClient(questionText.trim(), selectedExam);
       setResult(clientSolution);
       setActiveMethodTab('shortcut');
+      if (user) {
+        addDoc(collection(db, 'users', user.uid, 'solved'), {
+          question: questionText.trim() || 'Visual Question',
+          targetExam: selectedExam,
+          topic: clientSolution.topicDetected,
+          finalAnswer: clientSolution.finalAnswer,
+          speedEstimate: clientSolution.examShortcut?.speedEstimate || '30s',
+          createdAt: serverTimestamp(),
+        }).catch((e) => console.warn('Firestore solved record note:', e));
+      }
     } finally {
       setIsLoading(false);
     }
